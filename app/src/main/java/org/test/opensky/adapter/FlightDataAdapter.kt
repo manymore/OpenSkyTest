@@ -16,7 +16,6 @@ class FlightDataAdapter : RecyclerView.Adapter<MainViewHolder>() {
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MainViewHolder {
-
         val inflater = LayoutInflater.from(parent.context)
         val binding = AdapterFlightDataBinding.inflate(inflater, parent, false)
         return MainViewHolder(binding)
@@ -33,7 +32,6 @@ class FlightDataAdapter : RecyclerView.Adapter<MainViewHolder>() {
     override fun getItemCount(): Int {
         return flightDataList.size
     }
-
 }
 
 class MainViewHolder(val binding: AdapterFlightDataBinding) : RecyclerView.ViewHolder(binding.root) {

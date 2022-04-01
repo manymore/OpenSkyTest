@@ -174,25 +174,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     drawableDefault
                 }
 
-                val newMarker = mMap.addMarker(
-                    MarkerOptions().position(LatLng(flight.latitude()!!, flight.longitude()!!))
-                        .title(
-                            "ICAO: ${flight.icao24()} callSign: ${flight.callSign()} country: ${flight.country()}" +
-                                    " lat:${flight.latitude()} lon:${flight.longitude()} alt:${flight.altitude()}"
-                        )
-                        .icon(getBitmapDescriptor(drawable))
-                        .rotation(flight.bearig())
-                )
-                val oldMarker = markersMap.get(flightKey)
-                oldMarker?.let {
-                    it.marker.remove()
-                }
-                markersMap.remove(flightKey)
-                newMarker?.let {
+                val oldOccurence = markersMap.get(flightKey)
+                val oldMarker = oldOccurence?.marker
+                if (oldMarker != null && oldOccurence.onGround == flight.onGround()) {
+                    oldMarker.position = LatLng(flight.latitude()!!, flight.longitude()!!)
+                    oldMarker.rotation = flight.bearig()
                     markersMap.put(
                         flightKey,
-                        MarkerRecord(currentTime, newMarker)
+                        MarkerRecord(currentTime, flight.onGround(), oldMarker))
+                } else {
+                    val newMarker = mMap.addMarker(
+                        MarkerOptions().position(LatLng(flight.latitude()!!, flight.longitude()!!))
+                            .title("ICAO:${flight.icao24()} callSign:${flight.callSign()} country:${flight.country()}")
+                            .icon(getBitmapDescriptor(drawable))
+                            .rotation(flight.bearig())
                     )
+
+                    newMarker?.let {
+                        markersMap.put(
+                            flightKey,
+                            MarkerRecord(currentTime, flight.onGround(), newMarker)
+                        )
+                    }
                 }
             }
         }
