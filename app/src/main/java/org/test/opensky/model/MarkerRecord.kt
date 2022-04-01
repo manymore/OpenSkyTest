@@ -4,7 +4,19 @@ import com.google.android.gms.maps.model.Marker
 import java.util.*
 
 data class MarkerRecord(
-    val date: Date,
-    val onGround: Boolean,
-    val marker: Marker,
-)
+    private val date: Date,
+    private val onGround: Boolean,
+    private val marker: Marker,
+) {
+    fun date(): Date {
+        return date
+    }
+
+    fun onGround(): Boolean {
+        return onGround
+    }
+
+    fun marker(): Marker {
+        return marker
+    }
+}

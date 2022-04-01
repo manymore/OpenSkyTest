@@ -167,21 +167,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 val drawable = if (flight.onGround()) {
                     drawableOnGround
                 } else if (selectedFlightKey == null) {
-                    drawableSelected
+                    drawableDefault
                 } else if (flight.key() == selectedFlightKey) {
                     drawableSelected
                 } else {
                     drawableDefault
                 }
 
-                val oldOccurence = markersMap.get(flightKey)
-                val oldMarker = oldOccurence?.marker
-                if (oldMarker != null && oldOccurence.onGround == flight.onGround()) {
-                    oldMarker.position = LatLng(flight.latitude()!!, flight.longitude()!!)
-                    oldMarker.rotation = flight.bearig()
+                val existingRecord = markersMap.get(flightKey)
+                val existingMarker = existingRecord?.marker()
+                if (existingMarker != null && existingRecord.onGround() == flight.onGround()) {
+                    existingMarker.position = LatLng(flight.latitude()!!, flight.longitude()!!)
+                    existingMarker.rotation = flight.bearig()
                     markersMap.put(
                         flightKey,
-                        MarkerRecord(currentTime, flight.onGround(), oldMarker))
+                        MarkerRecord(currentTime, flight.onGround(), existingMarker))
                 } else {
                     val newMarker = mMap.addMarker(
                         MarkerOptions().position(LatLng(flight.latitude()!!, flight.longitude()!!))
@@ -199,8 +199,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
-        markersMap.filter { it.value.date.before(currentTime) }.forEach {
-            it.value.marker.remove()
+        markersMap.filter { it.value.date().before(currentTime) }.forEach {
+            it.value.marker().remove()
             markersMap.remove(it.key)
         }
     }
