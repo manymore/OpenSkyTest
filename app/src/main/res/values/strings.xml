@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">OpenSkyTest</string>
+    <string name="map">Map</string>
+    <string name="list">List</string>
+
+    <string name="icao24">ICAO24</string>
+    <string name="call_sign">Call Sign</string>
+    <string name="latitude">Latitude</string>
+    <string name="longitude">Longitude</string>
+</resources>
