@@ -19,6 +19,10 @@ data class FlightDataRecordDecoded(
         return "${icao24 ?: ""}${callSign ?: ""}${country ?: ""}"
     }
 
+    fun hasKey(otherKey: String?): Boolean {
+        return otherKey == key()
+    }
+
     fun date(): Date {
         return date
     }

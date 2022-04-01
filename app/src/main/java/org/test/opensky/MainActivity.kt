@@ -10,6 +10,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -28,13 +29,8 @@ import org.test.opensky.service.RetrofitService
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
-    companion object {
-        var showMap = false
-        var selectedFlightKey: String? = null
-    }
-
     lateinit var viewModel: MainViewModel
-    private val adapter = FlightDataAdapter()
+    private val adapter = FlightDataAdapter(this)
     lateinit var binding: ActivityMainBinding
 
     private lateinit var mMap: GoogleMap
@@ -43,6 +39,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val mapRightBottom = LatLng(48.55, 18.87)
 
     val markersMap: HashMap<String, MarkerRecord> = hashMapOf()
+
+    var showMap = false
+    val selectedFlightKey = MutableLiveData<String>()
+    val selectedFlightKeyMarker: Marker? = null
+    var selectedFlightKeyOld: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,9 +79,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         })
 
-        toggleMapView(showMap)
-
         viewModel.getOpenskyData()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        toggleMapView(showMap)
+    }
+
+    override fun onSaveInstanceState(savedInstanceState: Bundle) {
+        super.onSaveInstanceState(savedInstanceState)
+        savedInstanceState.putBoolean("showMap", showMap)
+        savedInstanceState.putString("selectedFlightKey", selectedFlightKey.value)
+        savedInstanceState.putString("selectedFlightKeyOld", selectedFlightKeyOld)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        showMap = savedInstanceState.getBoolean("showMap")
+        selectedFlightKey.value = savedInstanceState.getString("selectedFlightKey")
+        selectedFlightKeyOld = savedInstanceState.getString("selectedFlightKeyOld")
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -122,16 +140,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         mMap.setOnMapLoadedCallback {
 
-            viewModel.liveFlightData.observe(this, {
+            selectedFlightKey.observe(this) {
+                selectedFlightKeyMarker?.remove()
+                selectedFlightKeyOld?.let { markersMap.remove(it) }
+                viewModel.liveFlightData.value?.let { old ->
+                    mapProcessFlightData(
+                    markerDefaultDrawable,
+                    markerSelectedDrawable,
+                    markerOnGroundDrawable,
+                    old
+                )}
+                selectedFlightKeyOld = it
+            }
+
+            viewModel.liveFlightData.observe(this) {
                 mapProcessFlightData(
                     markerDefaultDrawable,
                     markerSelectedDrawable,
                     markerOnGroundDrawable,
                     it
                 )
-            })
-
-
+            }
 
             mMap.animateCamera(
                 CameraUpdateFactory.newLatLngBounds(
@@ -142,7 +171,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun toggleMapView(map: Boolean) {
+    fun toggleMapView(map: Boolean, key: String? = selectedFlightKey.value) {
+        selectedFlightKey.value = key
         if (map) {
             binding.recyclerview.visibility = View.GONE
             binding.map.visibility = View.VISIBLE
@@ -151,6 +181,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             binding.recyclerview.visibility = View.VISIBLE
             binding.map.visibility = View.GONE
             showMap = false
+            selectedFlightKey.value = null
         }
     }
 
@@ -161,14 +192,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         flightData: List<FlightDataRecordDecoded>
     ) {
         val currentTime = flightData[0].date()
-        flightData.forEach { flight ->
+        // sort by 'hasKey()' to selected flight marker be drawn as last ... I hope
+        flightData.sortedBy { it.hasKey(selectedFlightKey.value)}.forEach { flight ->
             val flightKey = flight.key()
             if (flight.latitude() != null && flight.longitude() != null) {
                 val drawable = if (flight.onGround()) {
                     drawableOnGround
                 } else if (selectedFlightKey == null) {
                     drawableDefault
-                } else if (flight.key() == selectedFlightKey) {
+                } else if (flight.key() == selectedFlightKey.value) {
                     drawableSelected
                 } else {
                     drawableDefault
@@ -179,6 +211,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (existingMarker != null && existingRecord.onGround() == flight.onGround()) {
                     existingMarker.position = LatLng(flight.latitude()!!, flight.longitude()!!)
                     existingMarker.rotation = flight.bearig()
+                    existingMarker.setIcon(getBitmapDescriptor(drawable))
                     markersMap.put(
                         flightKey,
                         MarkerRecord(currentTime, flight.onGround(), existingMarker))
