@@ -142,7 +142,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
             selectedFlightKey.observe(this) {
                 selectedFlightKeyMarker?.remove()
-                selectedFlightKeyOld?.let { markersMap.remove(it) }
+                selectedFlightKeyOld?.let {
+                    markersMap.get(it)?.marker()?.remove()
+                    markersMap.remove(it)
+                }
                 viewModel.liveFlightData.value?.let { old ->
                     mapProcessFlightData(
                     markerDefaultDrawable,
