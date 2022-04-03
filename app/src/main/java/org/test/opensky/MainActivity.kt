@@ -43,6 +43,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val markersMap: HashMap<String, MarkerRecord> = hashMapOf()
 
     var showMap = false
+    var forceData = false
     val selectedFlightKey = MutableLiveData<String>()
     val selectedFlightKeyMarker: Marker? = null
     var selectedFlightKeyOld: String? = null
@@ -172,7 +173,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     markerSelectedDrawable,
                     markerOnGroundDrawable,
                     it,
-                    true
                 )
             }
             // set up map
@@ -192,6 +192,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             binding.recyclerview.visibility = View.GONE
             binding.map.visibility = View.VISIBLE
             showMap = true
+            forceData = true
         } else {
             binding.recyclerview.visibility = View.VISIBLE
             binding.map.visibility = View.GONE
@@ -205,16 +206,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         drawableDefault: Drawable,
         drawableSelected: Drawable,
         drawableOnGround: Drawable,
-        flightData: List<FlightDataRecordDecoded>,
-        force: Boolean = false
+        flightData: List<FlightDataRecordDecoded>
     ) {
         val current = flightData[0].date()
         latestOpenSkyDate?.let {
             // Sometimes an earlier request returns data later than a later request returns its data
-            if (!force && !current.after(latestOpenSkyDate)) {
+            if (!forceData && !current.after(latestOpenSkyDate)) {
                 return
             }
         }
+        forceData = false
         latestOpenSkyDate = current
 
         // sort by 'hasKey()' to selected flight marker be drawn as last ... I hope
