@@ -140,12 +140,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         mMap.setOnMapLoadedCallback {
 
+            // observe "selected flight" changes
             selectedFlightKey.observe(this) {
                 selectedFlightKeyMarker?.remove()
+                // remove "old" selected flight marker
                 selectedFlightKeyOld?.let {
                     markersMap.get(it)?.marker()?.remove()
                     markersMap.remove(it)
                 }
+                // redraw map after "selected flight" change
                 viewModel.liveFlightData.value?.let { old ->
                     mapProcessFlightData(
                     markerDefaultDrawable,
@@ -153,9 +156,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     markerOnGroundDrawable,
                     old
                 )}
+                // remember new "selected flight"
                 selectedFlightKeyOld = it
             }
 
+            // observe live flight data
             viewModel.liveFlightData.observe(this) {
                 mapProcessFlightData(
                     markerDefaultDrawable,
@@ -164,7 +169,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     it
                 )
             }
-
+            // set up map
             mMap.animateCamera(
                 CameraUpdateFactory.newLatLngBounds(
                     builder.build(),
@@ -174,6 +179,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    // toggle listview / map
     fun toggleMapView(map: Boolean, key: String? = selectedFlightKey.value) {
         selectedFlightKey.value = key
         if (map) {
@@ -188,6 +194,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    // process flight data
     private fun mapProcessFlightData(
         drawableDefault: Drawable,
         drawableSelected: Drawable,
@@ -198,6 +205,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         // sort by 'hasKey()' to selected flight marker be drawn as last ... I hope
         flightData.sortedBy { it.hasKey(selectedFlightKey.value)}.forEach { flight ->
             val flightKey = flight.key()
+            // select appropriate marker drawable
             if (flight.latitude() != null && flight.longitude() != null) {
                 val drawable = if (flight.onGround()) {
                     drawableOnGround
@@ -211,7 +219,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 val existingRecord = markersMap.get(flightKey)
                 val existingMarker = existingRecord?.marker()
-                if (existingMarker != null && existingRecord.onGround() == flight.onGround()) {
+                if (existingMarker != null) {
                     existingMarker.position = LatLng(flight.latitude()!!, flight.longitude()!!)
                     existingMarker.rotation = flight.bearig()
                     existingMarker.setIcon(getBitmapDescriptor(drawable))
@@ -225,7 +233,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                             .icon(getBitmapDescriptor(drawable))
                             .rotation(flight.bearig())
                     )
-
                     newMarker?.let {
                         markersMap.put(
                             flightKey,
@@ -235,6 +242,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
+        // remove "old" flight data (flight records are no longer included in the latest OpenSky list)
         markersMap.filter { it.value.date().before(currentTime) }.forEach {
             it.value.marker().remove()
             markersMap.remove(it.key)
