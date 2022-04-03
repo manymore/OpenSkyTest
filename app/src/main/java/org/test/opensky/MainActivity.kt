@@ -43,12 +43,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val markersMap: HashMap<String, MarkerRecord> = hashMapOf()
 
     var showMap = false
-    var forceData = false
+    var mapLoadedDone = false
+    var forceProcessData = false
     val selectedFlightKey = MutableLiveData<String>()
     val selectedFlightKeyMarker: Marker? = null
     var selectedFlightKeyOld: String? = null
 
     var latestOpenSkyDate: Date? = null
+
+    var markerDefaultDrawable: Drawable? = null
+    var markerSelectedDrawable: Drawable? = null
+    var markerOnGroundDrawable: Drawable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,7 +66,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         val mapFragment = supportFragmentManager
-            .findFragmentById(org.test.opensky.R.id.map) as SupportMapFragment
+            .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
         viewModel = ViewModelProvider(
             this,
@@ -107,16 +112,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(org.test.opensky.R.menu.appmenu, menu)
+        menuInflater.inflate(R.menu.appmenu, menu)
         return super.onCreateOptionsMenu(menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         val id: Int = item.getItemId()
-        if (id == org.test.opensky.R.id.showMap) {
+        if (id == R.id.showMap) {
             toggleMapView(true)
         }
-        if (id == org.test.opensky.R.id.showList) {
+        if (id == R.id.showList) {
             toggleMapView(false)
         }
         return super.onOptionsItemSelected(item)
@@ -126,9 +131,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
 
-        val markerDefaultDrawable = getDrawable(org.test.opensky.R.drawable.ic_airplane)
-        val markerSelectedDrawable = getDrawable(org.test.opensky.R.drawable.ic_airplane_selected)
-        val markerOnGroundDrawable = getDrawable(org.test.opensky.R.drawable.ic_airplane_on_ground)
+        markerDefaultDrawable = getDrawable(R.drawable.ic_airplane)
+        markerSelectedDrawable = getDrawable(R.drawable.ic_airplane_selected)
+        markerOnGroundDrawable = getDrawable(R.drawable.ic_airplane_on_ground)
         if (markerDefaultDrawable == null) {
             throw IllegalArgumentException("Cannot get airplane Default drawable")
         }
@@ -144,7 +149,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         builder.include(mapRightBottom)
 
         mMap.setOnMapLoadedCallback {
-
             // observe "selected flight" changes
             selectedFlightKey.observe(this) {
                 selectedFlightKeyMarker?.remove()
@@ -156,22 +160,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 // redraw map after "selected flight" change
                 viewModel.liveFlightData.value?.let { old ->
                     mapProcessFlightData(
-                        markerDefaultDrawable,
-                        markerSelectedDrawable,
-                        markerOnGroundDrawable,
+                        markerDefaultDrawable!!,
+                        markerSelectedDrawable!!,
+                        markerOnGroundDrawable!!,
                         old
                     )
+                    // remember new "selected flight"
+                    selectedFlightKeyOld = it
                 }
-                // remember new "selected flight"
-                selectedFlightKeyOld = it
             }
 
             // observe live flight data
             viewModel.liveFlightData.observe(this) {
                 mapProcessFlightData(
-                    markerDefaultDrawable,
-                    markerSelectedDrawable,
-                    markerOnGroundDrawable,
+                    markerDefaultDrawable!!,
+                    markerSelectedDrawable!!,
+                    markerOnGroundDrawable!!,
                     it,
                 )
             }
@@ -182,6 +186,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     32
                 )
             )
+            mapLoadedDone = true
         }
     }
 
@@ -192,7 +197,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             binding.recyclerview.visibility = View.GONE
             binding.map.visibility = View.VISIBLE
             showMap = true
-            forceData = true
+            if (mapLoadedDone) {
+                forceProcessData = true
+                viewModel.liveFlightData.value?.let { old ->
+                    mapProcessFlightData(
+                        markerDefaultDrawable!!,
+                        markerSelectedDrawable!!,
+                        markerOnGroundDrawable!!,
+                        old
+                    )
+                }
+
+            }
         } else {
             binding.recyclerview.visibility = View.VISIBLE
             binding.map.visibility = View.GONE
@@ -211,11 +227,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val current = flightData[0].date()
         latestOpenSkyDate?.let {
             // Sometimes an earlier request returns data later than a later request returns its data
-            if (!forceData && !current.after(latestOpenSkyDate)) {
+            if (!forceProcessData && !current.after(latestOpenSkyDate)) {
                 return
             }
+            forceProcessData = false
         }
-        forceData = false
         latestOpenSkyDate = current
 
         // sort by 'hasKey()' to selected flight marker be drawn as last ... I hope
