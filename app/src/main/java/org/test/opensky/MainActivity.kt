@@ -26,6 +26,8 @@ import org.test.opensky.model.MainViewModelFactory
 import org.test.opensky.model.MarkerRecord
 import org.test.opensky.service.MainRepository
 import org.test.opensky.service.RetrofitService
+import java.util.*
+import kotlin.collections.HashMap
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -44,6 +46,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val selectedFlightKey = MutableLiveData<String>()
     val selectedFlightKeyMarker: Marker? = null
     var selectedFlightKeyOld: String? = null
+
+    var latestOpenSkyDate: Date? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -151,11 +155,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 // redraw map after "selected flight" change
                 viewModel.liveFlightData.value?.let { old ->
                     mapProcessFlightData(
-                    markerDefaultDrawable,
-                    markerSelectedDrawable,
-                    markerOnGroundDrawable,
-                    old
-                )}
+                        markerDefaultDrawable,
+                        markerSelectedDrawable,
+                        markerOnGroundDrawable,
+                        old
+                    )
+                }
                 // remember new "selected flight"
                 selectedFlightKeyOld = it
             }
@@ -166,7 +171,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     markerDefaultDrawable,
                     markerSelectedDrawable,
                     markerOnGroundDrawable,
-                    it
+                    it,
+                    true
                 )
             }
             // set up map
@@ -199,11 +205,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         drawableDefault: Drawable,
         drawableSelected: Drawable,
         drawableOnGround: Drawable,
-        flightData: List<FlightDataRecordDecoded>
+        flightData: List<FlightDataRecordDecoded>,
+        force: Boolean = false
     ) {
-        val currentTime = flightData[0].date()
+        val current = flightData[0].date()
+        latestOpenSkyDate?.let {
+            // Sometimes an earlier request returns data later than a later request returns its data
+            if (!force && !current.after(latestOpenSkyDate)) {
+                return
+            }
+        }
+        latestOpenSkyDate = current
+
         // sort by 'hasKey()' to selected flight marker be drawn as last ... I hope
-        flightData.sortedBy { it.hasKey(selectedFlightKey.value)}.forEach { flight ->
+        flightData.sortedBy { it.hasKey(selectedFlightKey.value) }.forEach { flight ->
             val flightKey = flight.key()
             // select appropriate marker drawable
             if (flight.latitude() != null && flight.longitude() != null) {
@@ -225,7 +240,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     existingMarker.setIcon(getBitmapDescriptor(drawable))
                     markersMap.put(
                         flightKey,
-                        MarkerRecord(currentTime, flight.onGround(), existingMarker))
+                        MarkerRecord(current, flight.onGround(), existingMarker)
+                    )
                 } else {
                     val newMarker = mMap.addMarker(
                         MarkerOptions().position(LatLng(flight.latitude()!!, flight.longitude()!!))
@@ -236,14 +252,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                     newMarker?.let {
                         markersMap.put(
                             flightKey,
-                            MarkerRecord(currentTime, flight.onGround(), newMarker)
+                            MarkerRecord(current, flight.onGround(), newMarker)
                         )
                     }
                 }
             }
         }
         // remove "old" flight data (flight records are no longer included in the latest OpenSky list)
-        markersMap.filter { it.value.date().before(currentTime) }.forEach {
+        markersMap.filter { it.value.date().before(current) }.forEach {
             it.value.marker().remove()
             markersMap.remove(it.key)
         }
