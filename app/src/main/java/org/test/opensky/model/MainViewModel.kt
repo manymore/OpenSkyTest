@@ -52,8 +52,8 @@ class MainViewModel constructor(private val mainRepository: MainRepository) : Vi
     }
 
     private fun onError(message: String) {
-        errorMessage.value = message
-        loading.value = false
+        errorMessage.postValue(message)
+        loading.postValue(false)
     }
 
     override fun onCleared() {
